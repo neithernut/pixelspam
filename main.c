@@ -9,6 +9,7 @@
 // std headers
 #include <errno.h>
 #include <malloc.h>
+#include <math.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -91,7 +92,40 @@ void* prepare_job_func(void* job) {
 
     unsigned long int frame = ((struct prepare_job*) job)->frame;
 
-    // TODO: generate!
+    // Draw a coloured Lissajous figure
+
+    // configuration
+    static const double colour_rate = 0.05;
+    static const double sin_rate = 1;
+    static const double cos_rate = 2;
+    static const double dephase_rate = 0.1;
+
+    static const unsigned int rounds = 100;
+    static const unsigned int pixel_per_round = 10;
+
+    char colour[7];
+    {
+        const double colour_offset = frame * colour_rate;
+        unsigned char r = 128 + sin(colour_offset + 0 * M_PI / 3) * 127;
+        unsigned char g = 128 + sin(colour_offset + 2 * M_PI / 3) * 127;
+        unsigned char b = 128 + sin(colour_offset + 4 * M_PI / 3) * 127;
+        snprintf(colour, sizeof(colour), "%02hhx%02hhx%02hhx", r, g, b);
+    }
+
+    const int x_off = g.x + g.w/2;
+    const int y_off = g.y + g.h/2;
+    const double step = 2 * M_PI * (rounds + 1.0)/(rounds * pixel_per_round);
+    const double dephase = frame * dephase_rate;
+
+    double cur = dephase;
+    for (unsigned int i = rounds * pixel_per_round; i; --i) {
+        buf_printf(b, "PX %d %d %s\n",
+            (int) (x_off + g.w * sin(sin_rate * cur) / 2),
+            (int) (y_off + g.h * cos(cos_rate * cur + dephase) / 2),
+            colour
+        );
+        cur += step;
+    }
 
     return retval;
 }
