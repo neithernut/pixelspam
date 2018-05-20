@@ -17,12 +17,14 @@
 // library headers
 #include <math.h>
 #include <pthread.h>
+#include <time.h>
 
 
 
 
 const size_t buflen = 1024*1024;
 const unsigned short int iov_maxlen = 1024;
+const double dt_target = 0.05;
 
 
 const struct addrinfo addr_hints = {
@@ -206,7 +208,11 @@ int main(int argc, char* argv[]) {
         .frame = 0
     };
     struct iovec* vec = (struct iovec*) prepare_job_func(&job);
-    unsigned short int vec_len = iov_maxlen;
+    unsigned short int vec_len = 1;
+
+    struct timespec ref_time;
+    if (clock_gettime(CLOCK_MONOTONIC, &ref_time) < 0)
+        die_errno("Failed to get some time ref");
 
     while (1) {
         // start a job, which will hopefully be completed before we finished writing
@@ -220,6 +226,19 @@ int main(int argc, char* argv[]) {
         if (writev(sock, vec, vec_len) < 0)
             die_errno("Failed to push stuff");
         free(vec);
+
+        struct timespec curr_time;
+        if (clock_gettime(CLOCK_MONOTONIC, &curr_time) < 0)
+            die_errno("Failed to get some time ref");
+
+        double dt = (curr_time.tv_sec  - ref_time.tv_sec ) +
+                    (curr_time.tv_nsec - ref_time.tv_nsec) * 1e-9;
+        vec_len = vec_len * (dt_target / dt);
+        if (vec_len < 1)
+            vec_len = 1;
+        if (vec_len > iov_maxlen)
+            vec_len = iov_maxlen;
+        ref_time = curr_time;
 
         if (pthread_join(worker, (void**) &vec) < 0)
             die_errno("Failed to join, wtf?");
