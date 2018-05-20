@@ -24,7 +24,7 @@ const unsigned short int iov_maxlen = 1024;
 
 
 const struct addrinfo addr_hints = {
-    .ai_flags = 0,
+    .ai_flags = AI_CANONNAME,
     .ai_family = AF_UNSPEC,
     .ai_socktype = SOCK_STREAM,
     .ai_protocol = 0,
@@ -174,6 +174,7 @@ int main(int argc, char* argv[]) {
         // probe all addresses
         struct addrinfo* curr = addresses;
         while (curr) {
+            fprintf(stderr, "Connecting to %s...\n", curr->ai_canonname);
             if (connect(sock, curr->ai_addr, curr->ai_addrlen) >= 0)
                 break;
             else
