@@ -89,15 +89,9 @@ struct prepare_job {
 
 
 void* prepare_job_func(void* job) {
-    // prepare the iov
-    struct iovec* retval = malloc(sizeof(*retval) * iov_maxlen);
-    struct buf* b = ((struct prepare_job*) job)->buf;
-    for (size_t pos = 0; pos < iov_maxlen; ++pos) {
-        retval[pos].iov_base = b->data;
-        retval[pos].iov_len = b->pos;
-    }
-
     unsigned long int frame = ((struct prepare_job*) job)->frame;
+    struct buf* b = ((struct prepare_job*) job)->buf;
+    buf_reset(b);
 
     // Draw a coloured Lissajous figure
 
@@ -132,6 +126,13 @@ void* prepare_job_func(void* job) {
             colour
         );
         cur += step;
+    }
+
+    // prepare the iov
+    struct iovec* retval = malloc(sizeof(*retval) * iov_maxlen);
+    for (size_t pos = 0; pos < iov_maxlen; ++pos) {
+        retval[pos].iov_base = b->data;
+        retval[pos].iov_len = b->pos;
     }
 
     return retval;
