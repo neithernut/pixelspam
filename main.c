@@ -117,14 +117,15 @@ void die_errno(const char* msg) {
 
 int main(int argc, char* argv[]) {
     switch(argc) {
-    case 6:
+    case 7:
         g.h = atoi(argv[6]);
-    case 5:
+    case 6:
         g.w = atoi(argv[5]);
-    case 4:
+    case 5:
         g.y = atoi(argv[4]);
-    case 3:
+    case 4:
         g.x = atoi(argv[3]);
+    case 3:
         break;
     default:
         die("usage: pixelspam host port [x [y [w [h]]]]");
