@@ -54,6 +54,9 @@ void buf_reset(struct buf* b) {
 }
 
 int buf_printf(struct buf* b, const char *format, ...) {
+    if (b->pos >= buflen)
+        return 0;
+
     va_list ap;
 
     va_start(ap, format);
