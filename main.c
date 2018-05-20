@@ -178,7 +178,7 @@ int main(int argc, char* argv[]) {
             if (connect(sock, curr->ai_addr, curr->ai_addrlen) >= 0)
                 break;
             else
-                fprintf(stderr, "Could not connect: %s", strerror(errno));
+                fprintf(stderr, "Could not connect: %s\n", strerror(errno));
             curr = curr->ai_next;
         }
         freeaddrinfo(addresses);
