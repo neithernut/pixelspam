@@ -64,6 +64,16 @@ int buf_printf(struct buf* b, const char *format, ...) {
 
 
 
+struct {
+    unsigned int x;
+    unsigned int y;
+    unsigned int w;
+    unsigned int h;
+} g = {.x = 0, .y = 0, .w = 100, .h = 100};
+
+
+
+
 struct prepare_job {
     struct buf* buf;
     unsigned long int frame;
@@ -106,16 +116,15 @@ void die_errno(const char* msg) {
 
 
 int main(int argc, char* argv[]) {
-    unsigned int x=0, y=0, w=100, h=100;
     switch(argc) {
     case 6:
-        h = atoi(argv[6]);
+        g.h = atoi(argv[6]);
     case 5:
-        w = atoi(argv[5]);
+        g.w = atoi(argv[5]);
     case 4:
-        y = atoi(argv[4]);
+        g.y = atoi(argv[4]);
     case 3:
-        x = atoi(argv[3]);
+        g.x = atoi(argv[3]);
         break;
     default:
         die("usage: pixelspam host port [x [y [w [h]]]]");
