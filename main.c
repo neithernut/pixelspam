@@ -9,12 +9,14 @@
 // std headers
 #include <errno.h>
 #include <malloc.h>
-#include <math.h>
-#include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+// library headers
+#include <math.h>
+#include <pthread.h>
 
 
 
