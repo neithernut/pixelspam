@@ -253,7 +253,6 @@ int main(int argc, char* argv[]) {
         // GREAT GLORY!!!!
         if (writev(sock, vec, vec_len) < 0)
             die_errno("Failed to push stuff");
-        free(vec);
 
         struct timespec curr_time;
         if (clock_gettime(CLOCK_MONOTONIC, &curr_time) < 0)
@@ -261,6 +260,15 @@ int main(int argc, char* argv[]) {
 
         double dt = (curr_time.tv_sec  - ref_time.tv_sec ) +
                     (curr_time.tv_nsec - ref_time.tv_nsec) * 1e-9;
+
+        const double bufs_per_sec = vec_len/(dt*1000);
+        printf(
+            "\r%6ld kbufs/s, %9ld kb/s",
+            (long) bufs_per_sec,
+            (long) (bufs_per_sec*vec[0].iov_len)
+        );
+        free(vec);
+
         vec_len = vec_len * (dt_target / dt);
         if (vec_len < 1)
             vec_len = 1;
