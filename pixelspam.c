@@ -221,7 +221,11 @@ void die_errno(const char* msg) {
 void* do_work(void* vec) {
     struct guarded_vec* v = (struct guarded_vec*) vec;
 
-    // double buffer
+    // double buffers
+    struct iovec* data[2];
+    data[0] = malloc(sizeof(*data) * iov_maxlen);
+    data[1] = malloc(sizeof(*data) * iov_maxlen);
+
     struct buf bufs[2];
     buf_init(bufs + 0);
     buf_init(bufs + 1);
@@ -236,7 +240,7 @@ void* do_work(void* vec) {
 
         prepare_job(buf, frame);
 
-        struct iovec* d = malloc(sizeof(*data) * iov_maxlen);
+        struct iovec* d = data[buf_sel];
         for (size_t pos = 0; pos < iov_maxlen; ++pos) {
             d[pos].iov_base = buf->data;
             d[pos].iov_len = buf->pos;
@@ -326,7 +330,6 @@ int main(int argc, char* argv[]) {
             (long) bufs_per_sec,
             (long) (bufs_per_sec*v[0].iov_len)
         );
-        free(v);
 
         vec_len = vec_len * (dt_target / dt);
         if (vec_len < 1)
