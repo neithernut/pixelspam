@@ -162,15 +162,7 @@ struct {
 
 
 
-struct prepare_job {
-    struct buf* buf;
-    unsigned long int frame;
-};
-
-
-void* prepare_job_func(void* job) {
-    unsigned long int frame = ((struct prepare_job*) job)->frame;
-    struct buf* b = ((struct prepare_job*) job)->buf;
+void prepare_job(struct buf* b, unsigned long int frame) {
     buf_reset(b);
 
     // Draw a coloured Lissajous figure
@@ -207,15 +199,6 @@ void* prepare_job_func(void* job) {
         );
         cur += step;
     }
-
-    // prepare the iov
-    struct iovec* retval = malloc(sizeof(*retval) * iov_maxlen);
-    for (size_t pos = 0; pos < iov_maxlen; ++pos) {
-        retval[pos].iov_base = b->data;
-        retval[pos].iov_len = b->pos;
-    }
-
-    return retval;
 }
 
 
@@ -244,18 +227,21 @@ void* do_work(void* vec) {
     buf_init(bufs + 1);
 
     unsigned char buf_sel = 0;
-
-    struct prepare_job job = {
-        .buf = bufs,
-        .frame = 0
-    };
+    unsigned long int frame = 0;
 
     while (1) {
         buf_sel ^= 1;
-        job.buf = bufs + buf_sel;
-        ++job.frame;
+        struct buf* buf = bufs + buf_sel;
+        ++frame;
 
-        guarded_vec_put(v, (struct iovec*) prepare_job_func(&job));
+        prepare_job(buf, frame);
+
+        struct iovec* d = malloc(sizeof(*data) * iov_maxlen);
+        for (size_t pos = 0; pos < iov_maxlen; ++pos) {
+            d[pos].iov_base = buf->data;
+            d[pos].iov_len = buf->pos;
+        }
+        guarded_vec_put(v, d);
     }
 }
 
