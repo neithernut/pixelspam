@@ -235,6 +235,33 @@ void die_errno(const char* msg) {
 
 
 
+void* do_work(void* vec) {
+    struct guarded_vec* v = (struct guarded_vec*) vec;
+
+    // double buffer
+    struct buf bufs[2];
+    buf_init(bufs + 0);
+    buf_init(bufs + 1);
+
+    unsigned char buf_sel = 0;
+
+    struct prepare_job job = {
+        .buf = bufs,
+        .frame = 0
+    };
+
+    while (1) {
+        buf_sel ^= 1;
+        job.buf = bufs + buf_sel;
+        ++job.frame;
+
+        guarded_vec_put(v, (struct iovec*) prepare_job_func(&job));
+    }
+}
+
+
+
+
 int main(int argc, char* argv[]) {
     switch(argc) {
     case 7:
@@ -274,24 +301,19 @@ int main(int argc, char* argv[]) {
         fputs("Got a connection!\n", stderr);
     }
 
-    // double buffer
-    struct buf bufs[2];
-    unsigned char buf_sel = 0;
-    buf_init(bufs + 0);
-    buf_init(bufs + 1);
-
     // threads!!!
     pthread_t worker;
     pthread_attr_t attr;
     if (pthread_attr_init(&attr) < 0)
         die_errno("Failed to init pthread attributes");
 
-    // misc initialization and allocation
-    struct prepare_job job = {
-        .buf = bufs,
-        .frame = 0
-    };
-    struct iovec* vec = (struct iovec*) prepare_job_func(&job);
+    struct guarded_vec vec;
+    if (guarded_vec_init(&vec) < 0)
+        die_errno("Failed to create exchange object\n");
+
+    if (pthread_create(&worker, &attr, do_work, &vec) < 0)
+        die_errno("Failed to create worker thread\n");
+
     unsigned short int vec_len = 1;
 
     struct timespec ref_time;
@@ -299,16 +321,11 @@ int main(int argc, char* argv[]) {
         die_errno("Failed to get some time ref");
 
     while (1) {
-        // start a job, which will hopefully be completed before we finished writing
-        buf_sel ^= 1;
-        job.buf = bufs + buf_sel;
-        ++job.frame;
-        if (pthread_create(&worker, &attr, prepare_job_func, &job) < 0)
-            die_errno("Failed to create worker thread\n");
-
         // GREAT GLORY!!!!
-        if (writev(sock, vec, vec_len) < 0)
+        struct iovec* v = guarded_vec_get(&vec);
+        if (writev(sock, v, vec_len) < 0)
             die_errno("Failed to push stuff");
+        guarded_vec_release(&vec);
 
         struct timespec curr_time;
         if (clock_gettime(CLOCK_MONOTONIC, &curr_time) < 0)
@@ -321,9 +338,9 @@ int main(int argc, char* argv[]) {
         printf(
             "\r%6ld kbufs/s, %9ld kb/s",
             (long) bufs_per_sec,
-            (long) (bufs_per_sec*vec[0].iov_len)
+            (long) (bufs_per_sec*v[0].iov_len)
         );
-        free(vec);
+        free(v);
 
         vec_len = vec_len * (dt_target / dt);
         if (vec_len < 1)
@@ -331,9 +348,6 @@ int main(int argc, char* argv[]) {
         if (vec_len > iov_maxlen)
             vec_len = iov_maxlen;
         ref_time = curr_time;
-
-        if (pthread_join(worker, (void**) &vec) < 0)
-            die_errno("Failed to join, wtf?");
     }
 }
 
