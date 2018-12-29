@@ -96,6 +96,62 @@ int buf_printf(struct buf* b, const char *format, ...) {
 
 
 
+struct guarded_vec {
+    pthread_mutex_t lock;
+    pthread_cond_t cond;
+    struct iovec* data;
+};
+
+
+int guarded_vec_init(struct guarded_vec* vec) {
+    int retval;
+
+    retval = pthread_mutex_init(&vec->lock, NULL);
+    if (retval < 0)
+        return retval;
+    retval = pthread_cond_init(&vec->cond, NULL);
+    if (retval < 0)
+        return retval;
+
+    vec->data = NULL;
+    return 0;
+}
+
+
+void guarded_vec_put(struct guarded_vec* vec, struct iovec* data) {
+    pthread_mutex_lock(&vec->lock);
+
+    while (vec->data)
+        pthread_cond_wait(&vec->cond, &vec->lock);
+    vec->data = data;
+    pthread_cond_signal(&vec->cond);
+
+    pthread_mutex_unlock(&vec->lock);
+}
+
+
+struct iovec* guarded_vec_get(struct guarded_vec* vec) {
+    pthread_mutex_lock(&vec->lock);
+
+    struct iovec* retval;
+    while (!(retval = vec->data))
+        pthread_cond_wait(&vec->cond, &vec->lock);
+
+    pthread_mutex_unlock(&vec->lock);
+    return retval;
+}
+
+
+void guarded_vec_release(struct guarded_vec* vec) {
+    pthread_mutex_lock(&vec->lock);
+    vec->data = NULL;
+    pthread_cond_signal(&vec->cond);
+    pthread_mutex_unlock(&vec->lock);
+}
+
+
+
+
 struct {
     unsigned int x;
     unsigned int y;
