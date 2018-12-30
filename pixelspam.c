@@ -96,6 +96,62 @@ int buf_printf(struct buf* b, const char *format, ...) {
 
 
 
+struct guarded_vec {
+    pthread_mutex_t lock;
+    pthread_cond_t cond;
+    struct iovec* data;
+};
+
+
+int guarded_vec_init(struct guarded_vec* vec) {
+    int retval;
+
+    retval = pthread_mutex_init(&vec->lock, NULL);
+    if (retval < 0)
+        return retval;
+    retval = pthread_cond_init(&vec->cond, NULL);
+    if (retval < 0)
+        return retval;
+
+    vec->data = NULL;
+    return 0;
+}
+
+
+void guarded_vec_put(struct guarded_vec* vec, struct iovec* data) {
+    pthread_mutex_lock(&vec->lock);
+
+    while (vec->data)
+        pthread_cond_wait(&vec->cond, &vec->lock);
+    vec->data = data;
+    pthread_cond_signal(&vec->cond);
+
+    pthread_mutex_unlock(&vec->lock);
+}
+
+
+struct iovec* guarded_vec_get(struct guarded_vec* vec) {
+    pthread_mutex_lock(&vec->lock);
+
+    struct iovec* retval;
+    while (!(retval = vec->data))
+        pthread_cond_wait(&vec->cond, &vec->lock);
+
+    pthread_mutex_unlock(&vec->lock);
+    return retval;
+}
+
+
+void guarded_vec_release(struct guarded_vec* vec) {
+    pthread_mutex_lock(&vec->lock);
+    vec->data = NULL;
+    pthread_cond_signal(&vec->cond);
+    pthread_mutex_unlock(&vec->lock);
+}
+
+
+
+
 struct {
     unsigned int x;
     unsigned int y;
@@ -106,15 +162,7 @@ struct {
 
 
 
-struct prepare_job {
-    struct buf* buf;
-    unsigned long int frame;
-};
-
-
-void* prepare_job_func(void* job) {
-    unsigned long int frame = ((struct prepare_job*) job)->frame;
-    struct buf* b = ((struct prepare_job*) job)->buf;
+void prepare_job(struct buf* b, unsigned long int frame) {
     buf_reset(b);
 
     // Draw a coloured Lissajous figure
@@ -151,15 +199,6 @@ void* prepare_job_func(void* job) {
         );
         cur += step;
     }
-
-    // prepare the iov
-    struct iovec* retval = malloc(sizeof(*retval) * iov_maxlen);
-    for (size_t pos = 0; pos < iov_maxlen; ++pos) {
-        retval[pos].iov_base = b->data;
-        retval[pos].iov_len = b->pos;
-    }
-
-    return retval;
 }
 
 
@@ -174,6 +213,40 @@ void die(const char* msg) {
 void die_errno(const char* msg) {
         fprintf(stderr, "%s: %s\n", msg, strerror(errno));
         exit(1);
+}
+
+
+
+
+void* do_work(void* vec) {
+    struct guarded_vec* v = (struct guarded_vec*) vec;
+
+    // double buffers
+    struct iovec* data[2];
+    data[0] = malloc(sizeof(*data) * iov_maxlen);
+    data[1] = malloc(sizeof(*data) * iov_maxlen);
+
+    struct buf bufs[2];
+    buf_init(bufs + 0);
+    buf_init(bufs + 1);
+
+    unsigned char buf_sel = 0;
+    unsigned long int frame = 0;
+
+    while (1) {
+        buf_sel ^= 1;
+        struct buf* buf = bufs + buf_sel;
+        ++frame;
+
+        prepare_job(buf, frame);
+
+        struct iovec* d = data[buf_sel];
+        for (size_t pos = 0; pos < iov_maxlen; ++pos) {
+            d[pos].iov_base = buf->data;
+            d[pos].iov_len = buf->pos;
+        }
+        guarded_vec_put(v, d);
+    }
 }
 
 
@@ -218,24 +291,19 @@ int main(int argc, char* argv[]) {
         fputs("Got a connection!\n", stderr);
     }
 
-    // double buffer
-    struct buf bufs[2];
-    unsigned char buf_sel = 0;
-    buf_init(bufs + 0);
-    buf_init(bufs + 1);
-
     // threads!!!
     pthread_t worker;
     pthread_attr_t attr;
     if (pthread_attr_init(&attr) < 0)
         die_errno("Failed to init pthread attributes");
 
-    // misc initialization and allocation
-    struct prepare_job job = {
-        .buf = bufs,
-        .frame = 0
-    };
-    struct iovec* vec = (struct iovec*) prepare_job_func(&job);
+    struct guarded_vec vec;
+    if (guarded_vec_init(&vec) < 0)
+        die_errno("Failed to create exchange object\n");
+
+    if (pthread_create(&worker, &attr, do_work, &vec) < 0)
+        die_errno("Failed to create worker thread\n");
+
     unsigned short int vec_len = 1;
 
     struct timespec ref_time;
@@ -243,16 +311,11 @@ int main(int argc, char* argv[]) {
         die_errno("Failed to get some time ref");
 
     while (1) {
-        // start a job, which will hopefully be completed before we finished writing
-        buf_sel ^= 1;
-        job.buf = bufs + buf_sel;
-        ++job.frame;
-        if (pthread_create(&worker, &attr, prepare_job_func, &job) < 0)
-            die_errno("Failed to create worker thread\n");
-
         // GREAT GLORY!!!!
-        if (writev(sock, vec, vec_len) < 0)
+        struct iovec* v = guarded_vec_get(&vec);
+        if (writev(sock, v, vec_len) < 0)
             die_errno("Failed to push stuff");
+        guarded_vec_release(&vec);
 
         struct timespec curr_time;
         if (clock_gettime(CLOCK_MONOTONIC, &curr_time) < 0)
@@ -265,9 +328,8 @@ int main(int argc, char* argv[]) {
         printf(
             "\r%6ld kbufs/s, %9ld kb/s",
             (long) bufs_per_sec,
-            (long) (bufs_per_sec*vec[0].iov_len)
+            (long) (bufs_per_sec*v[0].iov_len)
         );
-        free(vec);
 
         vec_len = vec_len * (dt_target / dt);
         if (vec_len < 1)
@@ -275,9 +337,6 @@ int main(int argc, char* argv[]) {
         if (vec_len > iov_maxlen)
             vec_len = iov_maxlen;
         ref_time = curr_time;
-
-        if (pthread_join(worker, (void**) &vec) < 0)
-            die_errno("Failed to join, wtf?");
     }
 }
 
