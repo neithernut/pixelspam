@@ -23,25 +23,21 @@
  */
 
 // sys headers
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <sys/uio.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <netdb.h>
 
 // std headers
-#include <errno.h>
 #include <malloc.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 // library headers
 #include <math.h>
 #include <pthread.h>
 #include <time.h>
+
+// local headers
+#include "util.h"
 
 
 
@@ -49,15 +45,6 @@
 const size_t buflen = 1024*1024;
 const unsigned short int iov_maxlen = 1024;
 const double dt_target = 0.05;
-
-
-const struct addrinfo addr_hints = {
-    .ai_flags = AI_CANONNAME,
-    .ai_family = AF_UNSPEC,
-    .ai_socktype = SOCK_STREAM,
-    .ai_protocol = 0,
-    0
-};
 
 
 
@@ -204,20 +191,6 @@ void prepare_job(struct buf* b, unsigned long int frame) {
 
 
 
-void die(const char* msg) {
-        fprintf(stderr, "%s\n", msg);
-        exit(1);
-}
-
-
-void die_errno(const char* msg) {
-        fprintf(stderr, "%s: %s\n", msg, strerror(errno));
-        exit(1);
-}
-
-
-
-
 void* do_work(void* vec) {
     struct guarded_vec* v = (struct guarded_vec*) vec;
 
@@ -268,28 +241,7 @@ int main(int argc, char* argv[]) {
         die("usage: pixelspam host port [x [y [w [h]]]]");
     };
 
-    // connect
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) die_errno("No sock!");
-    {
-        struct addrinfo* addresses;
-        if (getaddrinfo(argv[1], argv[2], &addr_hints, &addresses) < 0)
-            die_errno("Could not resolve address");
-
-        // probe all addresses
-        struct addrinfo* curr = addresses;
-        while (curr) {
-            fprintf(stderr, "Connecting to %s...\n", curr->ai_canonname);
-            if (connect(sock, curr->ai_addr, curr->ai_addrlen) >= 0)
-                break;
-            else
-                fprintf(stderr, "Could not connect: %s\n", strerror(errno));
-            curr = curr->ai_next;
-        }
-        freeaddrinfo(addresses);
-        if (!curr) die("Could not connect!");
-        fputs("Got a connection!\n", stderr);
-    }
+    int sock = connect_to(argv[1], argv[2]);
 
     // threads!!!
     pthread_t worker;
