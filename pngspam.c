@@ -29,9 +29,11 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 // library headers
 #include <png.h>
+#include <pthread.h>
 
 // local headers
 #include "util.h"
@@ -144,6 +146,16 @@ struct {
 
 
 
+void* do_vacuum(void* sockptr) {
+    int sock = *((int*) sockptr);
+
+    void* data = malloc(chunk_size);
+    while (read(sock, data, chunk_size) == 0);
+}
+
+
+
+
 int main(int argc, char* argv[]) {
     switch(argc) {
     case 6:
@@ -216,6 +228,14 @@ int main(int argc, char* argv[]) {
     }
 
     int sock = connect_to(argv[1], argv[2]);
+
+    // vacuumer thread
+    pthread_t vacuumer;
+    pthread_attr_t attr;
+    if (pthread_attr_init(&attr) < 0)
+        die_errno("Failed to init pthread attributes");
+    if (pthread_create(&vacuumer, &attr, do_vacuum, &sock) < 0)
+        die_errno("Failed to create vacuumer thread\n");
 
     struct timespec ref_time;
     if (clock_gettime(CLOCK_MONOTONIC, &ref_time) < 0)

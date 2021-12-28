@@ -30,6 +30,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 // library headers
 #include <math.h>
@@ -225,6 +226,16 @@ void* do_work(void* vec) {
 
 
 
+void* do_vacuum(void* sockptr) {
+    int sock = *((int*) sockptr);
+
+    void* data = malloc(buflen);
+    while (read(sock, data, buflen) == 0);
+}
+
+
+
+
 int main(int argc, char* argv[]) {
     switch(argc) {
     case 7:
@@ -245,6 +256,7 @@ int main(int argc, char* argv[]) {
 
     // threads!!!
     pthread_t worker;
+    pthread_t vacuumer;
     pthread_attr_t attr;
     if (pthread_attr_init(&attr) < 0)
         die_errno("Failed to init pthread attributes");
@@ -255,6 +267,9 @@ int main(int argc, char* argv[]) {
 
     if (pthread_create(&worker, &attr, do_work, &vec) < 0)
         die_errno("Failed to create worker thread\n");
+
+    if (pthread_create(&vacuumer, &attr, do_vacuum, &sock) < 0)
+        die_errno("Failed to create vacuumer thread\n");
 
     unsigned short int vec_len = 1;
 
