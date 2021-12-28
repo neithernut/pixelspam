@@ -159,8 +159,8 @@ void* do_vacuum(void* sockptr) {
 int main(int argc, char* argv[]) {
     switch(argc) {
     case 6:
-        g.x = atoi(argv[3]);
-        g.y = atoi(argv[4]);
+        g.x = atoi(argv[4]);
+        g.y = atoi(argv[5]);
     case 4:
         break;
     default:
