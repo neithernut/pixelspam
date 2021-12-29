@@ -197,8 +197,8 @@ void* do_work(void* vec) {
 
     // double buffers
     struct iovec* data[2];
-    data[0] = malloc(sizeof(*data) * iov_maxlen);
-    data[1] = malloc(sizeof(*data) * iov_maxlen);
+    data[0] = malloc(sizeof(**data) * iov_maxlen);
+    data[1] = malloc(sizeof(**data) * iov_maxlen);
 
     struct buf bufs[2];
     buf_init(bufs + 0);
