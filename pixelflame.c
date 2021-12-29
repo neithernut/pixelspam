@@ -23,6 +23,7 @@
  */
 
 // sys headers
+#include <sys/random.h>
 #include <sys/uio.h>
 
 // std headers
@@ -282,6 +283,12 @@ int main(int argc, char* argv[]) {
     };
 
     int sock = connect_to(argv[1], argv[2]);
+
+    {
+        int r = 4;
+        getrandom(&r, sizeof(r), GRND_NONBLOCK);
+        srand(r);
+    }
 
     // threads!!!
     pthread_t worker;
