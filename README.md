@@ -6,7 +6,7 @@ compatible servers.
 Usually, people write python scripts for spamming the server. Those scripts
 usually open a connection and start sending commands to the server, which are
 formatted on the fly. Even for static images, most don't even buffer commands
-albeit they are, well static. How incredibly inefficient.
+albeit they are, well, static. How incredibly inefficient.
 
 Thus, at [GPN 2018](https://entropia.de/GPN18) I started writing `pixelspam`.
 In ugly C. Without even trying to compile it after the event was over. Why?
