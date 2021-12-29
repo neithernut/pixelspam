@@ -253,7 +253,11 @@ int main(int argc, char* argv[]) {
 
         double dt = (curr_time.tv_sec  - ref_time.tv_sec ) +
                     (curr_time.tv_nsec - ref_time.tv_nsec) * 1e-9;
-        printf("\r%6f imgs/s, %9ld kb/s", 1/dt, (long) (res/(dt*1000)));
+        fprintf(
+            stderr,
+            "\r%6f imgs/s, %9ld kb/s", 1/dt,
+            (long) (res/(dt*1000))
+        );
 
         ref_time = curr_time;
     }

@@ -341,7 +341,8 @@ int main(int argc, char* argv[]) {
                     (curr_time.tv_nsec - ref_time.tv_nsec) * 1e-9;
 
         const double bufs_per_sec = vec_len/(dt*1000);
-        printf(
+        fprintf(
+            stderr,
             "\r%6ld kbufs/s, %9ld kb/s",
             (long) bufs_per_sec,
             (long) (bufs_per_sec*v[0].iov_len)
