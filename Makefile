@@ -2,8 +2,8 @@
 all: pixelspam pngspam
 
 pixelspam: pixelspam.c util.c
-	$(CC) -o $@ $^ -pthread -lm -lrt
+	$(CC) $(CFLAGS) -o $@ $^ -pthread -lm -lrt
 
 pngspam: pngspam.c util.c
-	$(CC) -o $@ $^ -lpng -pthread
+	$(CC) $(CFLAGS) -o $@ $^ -lpng -pthread
 
