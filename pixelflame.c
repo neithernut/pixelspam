@@ -155,7 +155,7 @@ struct {
     unsigned int x_max;
     unsigned int y_max;
     unsigned int particles;
-} g = {.x_max = 2000, .y_max = 1000, .particles = 100};
+} g = {.x_max = 2000, .y_max = 1000, .particles = 1024};
 
 
 
@@ -203,7 +203,7 @@ void* do_work(void* vec) {
 
     // configuration
     static const double colour_rate = 0.05;
-    static const unsigned int rundown_speed = 2;
+    static const unsigned int rundown_speed = 1;
 
     // double buffers
     struct iovec* data[2];
