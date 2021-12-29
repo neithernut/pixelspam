@@ -271,15 +271,12 @@ void* do_vacuum(void* sockptr) {
 
 int main(int argc, char* argv[]) {
     switch(argc) {
-    case 6:
-        g.particles = atoi(argv[5]);
-    case 5:
-        g.x_max = atoi(argv[3]);
-        g.y_max = atoi(argv[4]);
+    case 4:
+        g.particles = atoi(argv[3]);
     case 3:
         break;
     default:
-        die("usage: pixelflame host port [x y [y_max {particles]]]");
+        die("usage: pixelflame host port [particles]");
     };
 
     int sock = connect_to(argv[1], argv[2]);
@@ -288,6 +285,22 @@ int main(int argc, char* argv[]) {
         int r = 4;
         getrandom(&r, sizeof(r), GRND_NONBLOCK);
         srand(r);
+    }
+
+    {
+        if (write(sock, "SIZE\n", 5) < 0)
+            die_errno("Failed to send SIZE request");
+
+        char buf[1024];
+        size_t pos = 0;
+        do if (read(sock, buf + pos++, 1) < 0)
+            die_errno("Failed to get SIZE data");
+        while (buf[pos - 1] != '\n' || pos >= 1023);
+        buf[pos] = 0;
+
+        if (sscanf(buf, "SIZE %u %u\n", &g.x_max, &g.y_max) < 0)
+            die_errno("Failed to parse SIZE response");
+        fprintf(stderr, "Size is %u %u\n", g.x_max, g.y_max);
     }
 
     // threads!!!
