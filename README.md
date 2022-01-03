@@ -15,6 +15,9 @@ year, at [GPN 2019](https://entropia.de/GPN19) I wrote `pngspam`, which lets
 you spam a static PNG. At a private session at the end of 2021, I wrote
 `pixelflame`, yet another spammer.
 
+The overall "theme" for the spammers is filling a buffer and sending that out
+multiple times via `writev`. We also want to keep it simple and bare-bones.
+
 
 ## Building
 
